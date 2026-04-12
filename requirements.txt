@@ -1,0 +1,16 @@
+# QEVC — core dependencies
+# Versions match what is installed in qevc_env (Python 3.11.5)
+
+torch>=2.11.0
+torchvision>=0.26.0
+torchaudio>=2.11.0
+transformers>=5.5.0
+pennylane>=0.44.0
+pennylane-lightning>=0.44.0
+scikit-learn>=1.8.0
+numpy>=2.4.0
+pandas>=3.0.0
+pyyaml>=6.0.0
+tqdm>=4.67.0
+pillow>=12.2.0
+datasets>=4.8.0

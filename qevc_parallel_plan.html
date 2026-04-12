@@ -1,0 +1,87 @@
+<style>
+.day-label{font-size:13px;font-weight:500;color:var(--color-text-primary);margin:0 0 6px}
+.day-sub{font-size:11px;color:var(--color-text-tertiary);margin:0 0 10px}
+.lane{border-radius:8px;padding:10px 12px;margin-bottom:7px;font-size:12px;line-height:1.5}
+.mac{background:#E1F5EE;color:#085041;border-left:3px solid #1D9E75}
+.colab{background:#FAEEDA;color:#633806;border-left:3px solid #BA7517}
+.scc{background:#EEEDFE;color:#3C3489;border-left:3px solid #7F77DD}
+.physio{background:#FAECE7;color:#712B13;border-left:3px solid #D85A30}
+.blocker{background:#FCEBEB;color:#791F1F;border-left:3px solid #E24B4A;font-weight:500}
+.parallel-tag{display:inline-block;background:var(--color-background-secondary);border:0.5px solid var(--color-border-secondary);border-radius:4px;font-size:10px;padding:1px 6px;margin-left:6px;color:var(--color-text-tertiary);vertical-align:middle}
+.legend{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:20px;font-size:12px}
+.leg{display:flex;align-items:center;gap:6px}
+.leg-bar{width:12px;height:12px;border-radius:3px}
+.day-block{border:0.5px solid var(--color-border-tertiary);border-radius:10px;padding:14px 16px;margin-bottom:14px}
+.day-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
+.eta{font-size:11px;color:var(--color-text-tertiary)}
+</style>
+
+<div class="legend">
+  <div class="leg"><div class="leg-bar" style="background:#1D9E75"></div>M2 Mac</div>
+  <div class="leg"><div class="leg-bar" style="background:#BA7517"></div>Colab Free</div>
+  <div class="leg"><div class="leg-bar" style="background:#7F77DD"></div>BU SCC</div>
+  <div class="leg"><div class="leg-bar" style="background:#D85A30"></div>PhysioNet (apply now)</div>
+</div>
+
+<div class="day-block">
+  <div class="day-head"><div class="day-label">Day 1 — Setup everything simultaneously</div><div class="eta">~3 hrs active work</div></div>
+
+  <div class="physio">Apply PhysioNet credentialing at physionet.org — takes 10 min to submit, 1–7 days to approve. Do this first, before anything else.</div>
+  <div class="mac">Mac: pip install pennylane pennylane-lightning torch transformers scikit-learn · create project folder structure · write configs/default.yaml</div>
+  <div class="colab">Colab: open notebook, mount Drive, pip install same deps, verify T4 GPU is assigned (Runtime → Change runtime type)</div>
+  <div class="scc">SCC: ssh scc1.bu.edu · module load python/3.10 cuda/11.8 · pip install --user same deps · request test GPU: srun --partition=gpu --gres=gpu:1 --pty bash</div>
+</div>
+
+<div class="day-block">
+  <div class="day-head"><div class="day-label">Day 2 — Data + embedding extraction <span class="parallel-tag">3 things in parallel</span></div><div class="eta">mostly waiting</div></div>
+
+  <div class="mac">Mac (active): download VQA-CP v2 annotations + MS-COCO images (~25 GB) · write dataset loaders for both VQA-CP and MIMIC · write encoders/visual.py and encoders/language.py</div>
+  <div class="mac">Mac (running): extract ViT-L/14 + RoBERTa embeddings for VQA-CP 121k samples with MPS · save ev.npy, el.npy to disk · ETA ~1.5 hrs</div>
+  <div class="scc">SCC (submit and forget): submit embedding job for MIMIC-III structured encoder (3-layer MLP training) · you won't have MIMIC data yet but get the job script ready</div>
+  <div class="colab">Colab: while Mac extracts embeddings, write and test angle_encode() and bqa_circuit() on a 10-sample toy dataset — verify gradients are nonzero</div>
+</div>
+
+<div class="day-block">
+  <div class="day-head"><div class="day-label">Day 3 — Sanity checks + first real training <span class="parallel-tag">Mac + Colab simultaneously</span></div><div class="eta">~6 hrs</div></div>
+
+  <div class="mac">Mac: run PCA fusion on cached embeddings (fit on train split, save pca_v.pkl pca_l.pkl pca_s.pkl) · run 500-sample QEVC sanity check — confirm loss decreases, QFS moves · fix any bugs here before scaling</div>
+  <div class="mac">Mac: run all classical baselines (SVM-RBF, MLP) on 5k subset — fast, done in minutes — record these numbers immediately</div>
+  <div class="colab">Colab: upload ev.npy el.npy from Drive · run 5k-sample QEVC full training on T4 · checkpoint after every epoch to Drive · ETA ~3–5 hrs · let it run while you work on Mac</div>
+  <div class="scc">SCC: write train_vqa.sh SLURM script · test with --time=00:30:00 on 500 samples to confirm job runs cleanly before committing 24-hr job</div>
+</div>
+
+<div class="day-block">
+  <div class="day-head"><div class="day-label">Day 4 — Submit big SCC jobs + run AdvDeb/DBA <span class="parallel-tag">SCC + Colab + Mac all running</span></div><div class="eta">mostly waiting — most productive day</div></div>
+
+  <div class="scc">SCC: sbatch full VQA-CP training job (121k samples, 50 epochs, 24 hrs) · sbatch QK-SVM baseline job · both run overnight unattended</div>
+  <div class="colab">Colab: run AdvDeb baseline (PyTorch, GPU, ~1–2 hrs) · then run DBA baseline (~1–2 hrs) · record all numbers</div>
+  <div class="mac">Mac: if MIMIC-III data arrived — write MIMIC dataset loader, run structured MLP encoder, extract es.npy · write evaluation/metrics.py (EOD, IBD-F1, AUROC) · unit test metrics on synthetic data</div>
+  <div class="physio">PhysioNet: likely approved by now. Download MIMIC-III CSVs (NOTEEVENTS.csv, CHARTEVENTS.csv, DIAGNOSES_ICD.csv) — ~6 GB</div>
+</div>
+
+<div class="day-block">
+  <div class="day-head"><div class="day-label">Day 5 — Collect VQA-CP results + start MIMIC <span class="parallel-tag">parallel on SCC</span></div><div class="eta">results start arriving</div></div>
+
+  <div class="scc">SCC: check VQA-CP job status (squeue -u yourusername) · collect results, run evaluation script on test set · sbatch full MIMIC-III training job (53k samples, ~8–12 hrs)</div>
+  <div class="scc">SCC: submit ablation array job for λ sweep (5 values) and circuit depth sweep (4 values) — 9 jobs running in parallel</div>
+  <div class="mac">Mac: start writing results tables in LaTeX using Colab 5k numbers as placeholders — update with SCC full-data numbers when ready</div>
+  <div class="colab">Colab: run MIMIC-III baselines (SVM, MLP, AdvDeb, DBA) on MIMIC subset — record all baseline numbers</div>
+</div>
+
+<div class="day-block">
+  <div class="day-head"><div class="day-label">Day 6–7 — Collect all results + write paper <span class="parallel-tag">SCC finishes overnight</span></div><div class="eta">final stretch</div></div>
+
+  <div class="scc">SCC: collect MIMIC results + all ablation results · run final evaluation pass with 3 random seeds each for std dev</div>
+  <div class="mac">Mac: fill in all LaTeX tables with real numbers · generate QFS correlation analysis (Pearson r between QFS and EOD) · write discussion section with actual findings</div>
+  <div class="mac">Mac: double-check all numbers — EOD, IBD-F1, AUROC, QFS — match across your evaluation script and what's in the paper · regenerate tables 1–4</div>
+</div>
+
+<div style="border:0.5px solid var(--color-border-tertiary);border-radius:8px;padding:12px 14px;margin-top:4px">
+  <div style="font-size:12px;font-weight:500;color:var(--color-text-primary);margin-bottom:8px">Things that are always blocking (cannot be parallelized)</div>
+  <div style="font-size:12px;color:var(--color-text-secondary);line-height:1.8">
+    1. PhysioNet approval must happen before any MIMIC work — apply on Day 1.<br>
+    2. Embeddings must be extracted before QEVC training — but extraction is fast on Mac MPS (~1.5 hrs).<br>
+    3. SCC sanity test (500 samples) must pass before submitting the 24-hr full job — do this on Day 3.<br>
+    4. Baselines must finish before you can compute relative improvement numbers for the paper.
+  </div>
+</div>
