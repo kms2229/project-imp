@@ -1,0 +1,50 @@
+#!/bin/bash -l
+
+# ============================================================
+# Train QEVC on real VQA-CP features (1x L40S GPU)
+# Submit: qsub qevc/scripts/train_vqa_l40s.qsub
+#
+# For sanity check first:
+#   qsub -v N_SAMPLES=500,EPOCHS=5 qevc/scripts/train_vqa_l40s.qsub
+# ============================================================
+
+#$ -P llm-plastsurg
+#$ -N qevc_train
+#$ -l gpus=1
+#$ -l gpu_type=L40S
+#$ -l h_rt=24:00:00
+#$ -l mem_per_cpu=8G
+#$ -pe omp 4
+#$ -j y
+#$ -o /projectnb/llm-plastsurg/kms_new/logs/train_vqa_$JOB_ID.log
+
+echo "============================================================"
+echo "Job started: $(date)"
+echo "Node: $(hostname) | Job ID: $JOB_ID"
+echo "GPU: $(nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>/dev/null)"
+echo "============================================================"
+
+module load python3/3.10.12
+module load cuda/11.8
+
+export PROJECT_DIR=/projectnb/llm-plastsurg/kms_new
+export PYTHONUSERBASE=$PROJECT_DIR/.qevc_env
+export PATH=$PYTHONUSERBASE/bin:$PATH
+export PYTHONPATH=$PROJECT_DIR/project-imp:$PYTHONPATH
+export HF_HOME=$PROJECT_DIR/.cache/huggingface
+export TRANSFORMERS_CACHE=$PROJECT_DIR/.cache/huggingface/hub
+
+cd $PROJECT_DIR/project-imp
+
+# Build command with optional overrides
+CMD="python3 -m qevc.scripts.train_qevc --dataset vqacp --device cuda"
+
+if [ -n "$N_SAMPLES" ]; then CMD="$CMD --n-samples $N_SAMPLES"; fi
+if [ -n "$EPOCHS" ]; then CMD="$CMD --epochs $EPOCHS"; fi
+if [ -n "$LAMBDA" ]; then CMD="$CMD --lam $LAMBDA"; fi
+if [ -n "$N_LAYERS" ]; then CMD="$CMD --n-layers $N_LAYERS"; fi
+
+echo "Running: $CMD"
+eval "$CMD"
+
+echo "Job finished: $(date)"

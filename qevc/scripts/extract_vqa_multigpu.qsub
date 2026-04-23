@@ -1,0 +1,60 @@
+#!/bin/bash -l
+
+# ============================================================
+# MULTI-GPU: Extract ViT + RoBERTa embeddings (4x L40S GPUs)
+# Submit: qsub qevc/scripts/extract_vqa_multigpu.qsub
+#
+# Uses DataParallel across 4 GPUs for ~4x speedup.
+# Expected time: ~1-2 hours (vs ~4-8 hours single GPU)
+# ============================================================
+
+#$ -P llm-plastsurg
+#$ -N qevc_extract_mgpu
+#$ -l gpus=4
+#$ -l gpu_type=L40S
+#$ -l h_rt=06:00:00
+#$ -l mem_per_cpu=8G
+#$ -pe omp 8
+#$ -j y
+#$ -o /projectnb/llm-plastsurg/kms_new/logs/extract_multigpu_$JOB_ID.log
+
+echo "============================================================"
+echo "Job started: $(date)"
+echo "Node: $(hostname)"
+echo "Job ID: $JOB_ID"
+echo "Requested GPUs: 4 x L40S"
+echo "============================================================"
+
+# Load modules
+module load python3/3.10.12
+module load cuda/11.8
+
+# Setup environment
+export PROJECT_DIR=/projectnb/llm-plastsurg/kms_new
+export PYTHONUSERBASE=$PROJECT_DIR/.qevc_env
+export PATH=$PYTHONUSERBASE/bin:$PATH
+export PYTHONPATH=$PROJECT_DIR/project-imp:$PYTHONPATH
+
+# Point HuggingFace to project disk cache (NOT home dir)
+export HF_HOME=$PROJECT_DIR/.cache/huggingface
+export TRANSFORMERS_CACHE=$PROJECT_DIR/.cache/huggingface/hub
+export XDG_CACHE_HOME=$PROJECT_DIR/.cache
+
+# Navigate to repo
+cd $PROJECT_DIR/project-imp
+
+echo ""
+echo "Python: $(which python3)"
+echo "GPUs detected:"
+nvidia-smi --query-gpu=index,name,memory.total --format=csv,noheader
+echo ""
+
+# Run multi-GPU extraction
+# --batch-size is PER-GPU; effective = 64 * 4 = 256 images at once
+python3 -m qevc.scripts.extract_embeddings_multigpu \
+    --dataset vqacp \
+    --batch-size 64 \
+    --num-workers 8
+
+echo ""
+echo "Job finished: $(date)"

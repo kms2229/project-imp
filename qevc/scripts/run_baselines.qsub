@@ -1,0 +1,33 @@
+#!/bin/bash -l
+
+# ============================================================
+# STEP 4: Run all classical baselines (SVM, MLP, AdvDeb, DBA)
+# Submit: qsub qevc/scripts/run_baselines.qsub
+# ============================================================
+
+#$ -P llm-plastsurg
+#$ -N qevc_baselines
+#$ -l gpus=1
+#$ -l h_rt=04:00:00
+#$ -l mem_per_cpu=8G
+#$ -pe omp 4
+#$ -j y
+#$ -o /projectnb/llm-plastsurg/kms_new/logs/baselines_$JOB_ID.log
+
+echo "Job started: $(date)"
+
+module load python3/3.10.12
+module load cuda/11.8
+
+export PROJECT_DIR=/projectnb/llm-plastsurg/kms_new
+export PYTHONUSERBASE=$PROJECT_DIR/.qevc_env
+export PATH=$PYTHONUSERBASE/bin:$PATH
+export PYTHONPATH=$PROJECT_DIR/project-imp:$PYTHONPATH
+
+cd $PROJECT_DIR/project-imp
+
+echo "GPU: $(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null || echo 'none')"
+
+python3 -m qevc.scripts.run_baselines --dataset vqacp --baselines all
+
+echo "Job finished: $(date)"

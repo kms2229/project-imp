@@ -1,0 +1,62 @@
+#!/bin/bash -l
+
+# ============================================================
+# Ablation sweep: λ values + circuit depth (L40S GPUs)
+# Submit: qsub -t 1-9 qevc/scripts/ablation_sweep_l40s.qsub
+#
+# Task array: 9 parallel 1-GPU jobs
+#   1-5: λ sweep (0.1, 0.25, 0.5, 0.75, 1.0)
+#   6-9: depth sweep (L=2, 4, 6, 8)
+#
+# Uses L40S for consistent timing across ablation runs.
+# ============================================================
+
+#$ -P llm-plastsurg
+#$ -N qevc_ablation
+#$ -l gpus=1
+#$ -l gpu_type=L40S
+#$ -l h_rt=24:00:00
+#$ -l mem_per_cpu=8G
+#$ -pe omp 4
+#$ -j y
+#$ -o /projectnb/llm-plastsurg/kms_new/logs/ablation_$JOB_ID_$TASK_ID.log
+
+echo "============================================================"
+echo "Job started: $(date)"
+echo "Node: $(hostname) | Job ID: $JOB_ID | Task: $SGE_TASK_ID"
+echo "GPU: $(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null)"
+echo "============================================================"
+
+module load python3/3.10.12
+module load cuda/11.8
+
+export PROJECT_DIR=/projectnb/llm-plastsurg/kms_new
+export PYTHONUSERBASE=$PROJECT_DIR/.qevc_env
+export PATH=$PYTHONUSERBASE/bin:$PATH
+export PYTHONPATH=$PROJECT_DIR/project-imp:$PYTHONPATH
+export HF_HOME=$PROJECT_DIR/.cache/huggingface
+
+cd $PROJECT_DIR/project-imp
+
+# Lambda sweep values
+LAMBDAS=(0.1 0.25 0.5 0.75 1.0)
+# Depth sweep values
+DEPTHS=(2 4 6 8)
+
+TASK_ID=${SGE_TASK_ID:-1}
+
+if [ $TASK_ID -le 5 ]; then
+    # Lambda ablation (tasks 1-5)
+    L_IDX=$((TASK_ID - 1))
+    LAM=${LAMBDAS[$L_IDX]}
+    echo "Lambda ablation: λ=$LAM"
+    python3 -m qevc.scripts.train_qevc --dataset vqacp --device cuda --lam $LAM
+elif [ $TASK_ID -le 9 ]; then
+    # Depth ablation (tasks 6-9)
+    D_IDX=$((TASK_ID - 6))
+    DEPTH=${DEPTHS[$D_IDX]}
+    echo "Depth ablation: L=$DEPTH"
+    python3 -m qevc.scripts.train_qevc --dataset vqacp --device cuda --n-layers $DEPTH
+fi
+
+echo "Job finished: $(date)"

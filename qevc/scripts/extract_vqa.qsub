@@ -1,0 +1,45 @@
+#!/bin/bash -l
+
+# ============================================================
+# STEP 1: Extract ViT + RoBERTa embeddings from real VQA data
+# Submit: qsub qevc/scripts/extract_vqa.qsub
+# ============================================================
+
+#$ -P llm-plastsurg
+#$ -N qevc_extract
+#$ -l gpus=1
+#$ -l h_rt=08:00:00
+#$ -l mem_per_cpu=8G
+#$ -pe omp 4
+#$ -j y
+#$ -o /projectnb/llm-plastsurg/kms_new/logs/extract_vqa_$JOB_ID.log
+
+echo "Job started: $(date)"
+echo "Node: $(hostname)"
+echo "Job ID: $JOB_ID"
+
+# Load modules
+module load python3/3.10.12
+module load cuda/11.8
+
+# Setup environment
+export PROJECT_DIR=/projectnb/llm-plastsurg/kms_new
+export PYTHONUSERBASE=$PROJECT_DIR/.qevc_env
+export PATH=$PYTHONUSERBASE/bin:$PATH
+export PYTHONPATH=$PROJECT_DIR/project-imp:$PYTHONPATH
+
+# Point HuggingFace to project disk cache (NOT home dir)
+export HF_HOME=$PROJECT_DIR/.cache/huggingface
+export TRANSFORMERS_CACHE=$PROJECT_DIR/.cache/huggingface/hub
+export XDG_CACHE_HOME=$PROJECT_DIR/.cache
+
+# Navigate to repo
+cd $PROJECT_DIR/project-imp
+
+echo "Python: $(which python3)"
+echo "GPU: $(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null || echo 'none')"
+
+# Run embedding extraction
+python3 -m qevc.scripts.extract_embeddings --dataset vqacp --device cuda --batch-size 32
+
+echo "Job finished: $(date)"

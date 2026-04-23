@@ -1,0 +1,29 @@
+#!/bin/bash -l
+
+# ============================================================
+# STEP 2: PCA fusion (CPU-only, fast)
+# Submit: qsub qevc/scripts/run_pca.qsub
+# ============================================================
+
+#$ -P llm-plastsurg
+#$ -N qevc_pca
+#$ -l h_rt=01:00:00
+#$ -l mem_per_cpu=16G
+#$ -pe omp 4
+#$ -j y
+#$ -o /projectnb/llm-plastsurg/kms_new/logs/pca_$JOB_ID.log
+
+echo "Job started: $(date)"
+
+module load python3/3.10.12
+
+export PROJECT_DIR=/projectnb/llm-plastsurg/kms_new
+export PYTHONUSERBASE=$PROJECT_DIR/.qevc_env
+export PATH=$PYTHONUSERBASE/bin:$PATH
+export PYTHONPATH=$PROJECT_DIR/project-imp:$PYTHONPATH
+
+cd $PROJECT_DIR/project-imp
+
+python3 -m qevc.scripts.run_pca --dataset vqacp
+
+echo "Job finished: $(date)"
