@@ -13,7 +13,7 @@
 #$ -l gpus=4
 #$ -l gpu_type=L40S
 #$ -l h_rt=06:00:00
-#$ -l mem_per_cpu=8G
+#$ -l mem_total=32G
 #$ -pe omp 8
 #$ -j y
 #$ -o /projectnb/llm-plastsurg/kms_new/logs/extract_multigpu_$JOB_ID.log

@@ -9,7 +9,7 @@
 #$ -N qevc_extract
 #$ -l gpus=1
 #$ -l h_rt=08:00:00
-#$ -l mem_per_cpu=8G
+#$ -l mem_total=32G
 #$ -pe omp 4
 #$ -j y
 #$ -o /projectnb/llm-plastsurg/kms_new/logs/extract_vqa_$JOB_ID.log

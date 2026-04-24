@@ -8,7 +8,7 @@
 #$ -P llm-plastsurg
 #$ -N qevc_pca
 #$ -l h_rt=01:00:00
-#$ -l mem_per_cpu=16G
+#$ -l mem_total=64G
 #$ -pe omp 4
 #$ -j y
 #$ -o /projectnb/llm-plastsurg/kms_new/logs/pca_$JOB_ID.log
