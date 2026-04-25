@@ -37,7 +37,21 @@ export XDG_CACHE_HOME=$PROJECT_DIR/.cache
 cd $PROJECT_DIR/project-imp
 
 echo "Python: $(which python3)"
+echo "Python version: $(python3 --version)"
 echo "GPU: $(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null || echo 'none')"
+echo ""
+echo "=== DEBUGGING PYTHONPATH ==="
+echo "PYTHONPATH: $PYTHONPATH"
+echo ""
+echo "=== Checking site-packages directories ==="
+ls -d $PROJECT_DIR/.qevc_env/lib/python*/site-packages/ 2>/dev/null || echo "No site-packages found in .qevc_env"
+echo ""
+echo "=== Looking for transformers ==="
+find $PROJECT_DIR/.qevc_env -name "transformers" -type d -maxdepth 4 2>/dev/null | head -5
+echo ""
+echo "=== Test import ==="
+python3 -c "import sys; print('sys.path:'); [print(f'  {p}') for p in sys.path]; import transformers; print(f'transformers OK: {transformers.__version__}')" 2>&1
+echo ""
 
 # Run embedding extraction
 python3 -m qevc.scripts.extract_embeddings --dataset vqacp --device cuda --batch-size 32
