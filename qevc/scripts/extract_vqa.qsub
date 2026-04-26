@@ -8,6 +8,7 @@
 #$ -P llm-plastsurg
 #$ -N qevc_extract
 #$ -l gpus=1
+#$ -l gpu_type=L40S
 #$ -l h_rt=08:00:00
 #$ -l mem_total=32G
 #$ -pe omp 4
