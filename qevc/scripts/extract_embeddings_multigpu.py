@@ -125,8 +125,8 @@ def extract_vqacp_multigpu(
     # --- Load ViT-L/14 ---
     print("Loading ViT-L/14...")
     from transformers import ViTModel, ViTImageProcessor
-    vit_processor = ViTImageProcessor.from_pretrained("google/vit-large-patch14-224")
-    vit_raw = ViTModel.from_pretrained("google/vit-large-patch14-224")
+    vit_processor = ViTImageProcessor.from_pretrained("google/vit-large-patch16-224")
+    vit_raw = ViTModel.from_pretrained("google/vit-large-patch16-224")
     vit_raw.eval()
     for p in vit_raw.parameters():
         p.requires_grad = False

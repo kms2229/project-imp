@@ -53,7 +53,7 @@ class VisualEncoder:
 
     def __init__(
         self,
-        model_name: str = "google/vit-large-patch14-224",
+        model_name: str = "google/vit-large-patch16-224",
         device: Optional[torch.device] = None,
     ) -> None:
         from transformers import ViTModel, ViTImageProcessor
