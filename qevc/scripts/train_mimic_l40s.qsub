@@ -1,22 +1,22 @@
 #!/bin/bash -l
 
 # ============================================================
-# Train QEVC on real VQA-CP features (1x L40S GPU)
-# Submit: qsub qevc/scripts/train_vqa_l40s.qsub
+# MIMIC STEP 4: Train QEVC on MIMIC-III mortality prediction
+# Submit: qsub qevc/scripts/train_mimic_l40s.qsub
 #
-# For sanity check first:
-#   qsub -v N_SAMPLES=500,EPOCHS=5 qevc/scripts/train_vqa_l40s.qsub
+# Sanity check first:
+#   qsub -v N_SAMPLES=500,EPOCHS=5 qevc/scripts/train_mimic_l40s.qsub
 # ============================================================
 
 #$ -P llm-plastsurg
-#$ -N qevc_train
+#$ -N mimic_train
 #$ -l gpus=1
 #$ -l gpu_type=L40S
 #$ -l h_rt=24:00:00
 #$ -l mem_total=32G
 #$ -pe omp 4
 #$ -j y
-#$ -o /projectnb/llm-plastsurg/kms_new/logs/train_vqa_$JOB_ID.log
+#$ -o /projectnb/llm-plastsurg/kms_new/logs/mimic_train_$JOB_ID.log
 
 echo "============================================================"
 echo "Job started: $(date)"
@@ -36,8 +36,7 @@ export TRANSFORMERS_CACHE=$PROJECT_DIR/.cache/huggingface/hub
 
 cd $PROJECT_DIR/project-imp
 
-# Build command with optional overrides
-CMD="python3 -m qevc.scripts.train_qevc --dataset vqacp --device cuda --batch-size ${BATCH_SIZE:-128}"
+CMD="python3 -m qevc.scripts.train_qevc --dataset mimic --device cuda"
 
 if [ -n "$N_SAMPLES" ]; then CMD="$CMD --n-samples $N_SAMPLES"; fi
 if [ -n "$EPOCHS" ]; then CMD="$CMD --epochs $EPOCHS"; fi

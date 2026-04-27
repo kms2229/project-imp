@@ -1,22 +1,22 @@
 #!/bin/bash -l
 
 # ============================================================
-# Train QEVC on real VQA-CP features (1x L40S GPU)
-# Submit: qsub qevc/scripts/train_vqa_l40s.qsub
+# MIMIC STEP 2: Extract structured + language embeddings
+# Submit: qsub qevc/scripts/extract_mimic.qsub
 #
-# For sanity check first:
-#   qsub -v N_SAMPLES=500,EPOCHS=5 qevc/scripts/train_vqa_l40s.qsub
+# Reads CHARTEVENTS (~33 GB), LABEVENTS (~2 GB), NOTEEVENTS
+# and produces: es_{split}.npy, el_{split}.npy, meta_{split}.npz
 # ============================================================
 
 #$ -P llm-plastsurg
-#$ -N qevc_train
+#$ -N mimic_extract
 #$ -l gpus=1
 #$ -l gpu_type=L40S
-#$ -l h_rt=24:00:00
-#$ -l mem_total=32G
-#$ -pe omp 4
+#$ -l h_rt=12:00:00
+#$ -l mem_total=64G
+#$ -pe omp 8
 #$ -j y
-#$ -o /projectnb/llm-plastsurg/kms_new/logs/train_vqa_$JOB_ID.log
+#$ -o /projectnb/llm-plastsurg/kms_new/logs/mimic_extract_$JOB_ID.log
 
 echo "============================================================"
 echo "Job started: $(date)"
@@ -36,15 +36,8 @@ export TRANSFORMERS_CACHE=$PROJECT_DIR/.cache/huggingface/hub
 
 cd $PROJECT_DIR/project-imp
 
-# Build command with optional overrides
-CMD="python3 -m qevc.scripts.train_qevc --dataset vqacp --device cuda --batch-size ${BATCH_SIZE:-128}"
+# Run MIMIC embedding extraction
+python3 -m qevc.scripts.extract_embeddings --dataset mimic --device cuda --batch-size 32
 
-if [ -n "$N_SAMPLES" ]; then CMD="$CMD --n-samples $N_SAMPLES"; fi
-if [ -n "$EPOCHS" ]; then CMD="$CMD --epochs $EPOCHS"; fi
-if [ -n "$LAMBDA" ]; then CMD="$CMD --lam $LAMBDA"; fi
-if [ -n "$N_LAYERS" ]; then CMD="$CMD --n-layers $N_LAYERS"; fi
-
-echo "Running: $CMD"
-eval "$CMD"
-
+echo ""
 echo "Job finished: $(date)"

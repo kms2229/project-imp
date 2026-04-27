@@ -37,6 +37,8 @@ def main():
                         help="Override lambda")
     parser.add_argument("--n-layers", type=int, default=None,
                         help="Override circuit depth")
+    parser.add_argument("--batch-size", type=int, default=None,
+                        help="Override batch size (larger = faster epochs)")
     parser.add_argument("--device", default="auto")
     args = parser.parse_args()
 
@@ -48,6 +50,8 @@ def main():
         overrides["lam"] = args.lam
     if args.n_layers is not None:
         overrides["n_layers"] = args.n_layers
+    if args.batch_size is not None:
+        overrides["batch_size"] = args.batch_size
 
     config = load_config(args.config, **overrides)
     set_seed(config.seed)

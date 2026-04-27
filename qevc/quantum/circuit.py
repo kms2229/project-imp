@@ -35,11 +35,22 @@ def create_bqa_circuit(n_qubits: int, n_layers: int):
     Returns
     -------
     qnode : QNode
-        PennyLane QNode with ``interface='torch'`` and ``diff_method='backprop'``.
+        PennyLane QNode with ``interface='torch'``.
+        Uses ``lightning.qubit`` (C++ backend) with adjoint differentiation
+        for faster simulation. Falls back to ``default.qubit`` if lightning
+        is not installed.
     """
-    dev = qml.device("default.qubit", wires=n_qubits)
+    # lightning.qubit is a C++ accelerated simulator — same quantum math,
+    # ~3-5x faster than default.qubit's Python-based simulation.
+    try:
+        dev = qml.device("lightning.qubit", wires=n_qubits)
+        diff_method = "adjoint"
+    except qml.DeviceError:
+        dev = qml.device("default.qubit", wires=n_qubits)
+        diff_method = "backprop"
+        print("WARNING: lightning.qubit not available, falling back to default.qubit")
 
-    @qml.qnode(dev, interface="torch", diff_method="backprop")
+    @qml.qnode(dev, interface="torch", diff_method=diff_method)
     def circuit(features_padded, weights):
         """
         Parameters

@@ -1,0 +1,60 @@
+#!/bin/bash -l
+
+# ============================================================
+# MIMIC STEP 1: Download MIMIC-III CSVs from PhysioNet
+# Submit: qsub qevc/scripts/download_mimic.qsub
+#
+# Requires: PhysioNet credentials set up via:
+#   wget --user=<USERNAME> --ask-password -r -N -c -np
+# ============================================================
+
+#$ -P llm-plastsurg
+#$ -N mimic_download
+#$ -l h_rt=04:00:00
+#$ -l mem_total=16G
+#$ -pe omp 2
+#$ -j y
+#$ -o /projectnb/llm-plastsurg/kms_new/logs/mimic_download_$JOB_ID.log
+
+echo "Job started: $(date)"
+
+module load python3/3.10.12
+
+export PROJECT_DIR=/projectnb/llm-plastsurg/kms_new
+export PYTHONUSERBASE=$PROJECT_DIR/.qevc_env
+export PATH=$PYTHONUSERBASE/bin:$PATH
+
+# Create MIMIC data directory
+MIMIC_DIR=$PROJECT_DIR/project-imp/qevc/data/mimic/raw
+mkdir -p $MIMIC_DIR
+cd $MIMIC_DIR
+
+echo "Downloading MIMIC-III to: $MIMIC_DIR"
+echo ""
+echo "=== IMPORTANT ==="
+echo "You need to download MIMIC-III manually using your PhysioNet credentials."
+echo "Run this command interactively (NOT via qsub):"
+echo ""
+echo "  wget -r -N -c -np --user YOUR_PHYSIONET_USERNAME --ask-password \\"
+echo "    https://physionet.org/files/mimiciii/1.4/"
+echo ""
+echo "Or if you already have access via Google BigQuery / PhysioNet files:"
+echo "  pip3 install --user wfdb"
+echo "  python3 -c \"import wfdb; wfdb.dl_database('mimiciii/1.4', '$MIMIC_DIR')\""
+echo ""
+echo "Required files:"
+echo "  ADMISSIONS.csv(.gz), PATIENTS.csv(.gz), CHARTEVENTS.csv(.gz),"
+echo "  LABEVENTS.csv(.gz), NOTEEVENTS.csv(.gz)"
+echo ""
+
+# Check if files already exist
+for f in ADMISSIONS PATIENTS CHARTEVENTS LABEVENTS NOTEEVENTS; do
+    if [ -f "$f.csv" ] || [ -f "$f.csv.gz" ]; then
+        echo "  ✓ $f found"
+    else
+        echo "  ✗ $f MISSING"
+    fi
+done
+
+echo ""
+echo "Job finished: $(date)"
