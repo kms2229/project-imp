@@ -25,15 +25,18 @@ def run_pca(data_dir: Path, n_pca: int = 32, has_structured: bool = False):
 
     # --- Load train embeddings ---
     print("Loading train embeddings...")
-    ev_train = np.load(data_dir / "ev_train.npy")
+    ev_train = None
+    ev_path = data_dir / "ev_train.npy"
+    if ev_path.exists():
+        ev_train = np.load(ev_path)
+        print(f"  Visual:    {ev_train.shape}")
+    
     el_train = np.load(data_dir / "el_train.npy")
+    print(f"  Language:  {el_train.shape}")
+    
     es_train = None
     if has_structured:
         es_train = np.load(data_dir / "es_train.npy")
-
-    print(f"  Visual:    {ev_train.shape}")
-    print(f"  Language:  {el_train.shape}")
-    if es_train is not None:
         print(f"  Structured: {es_train.shape}")
 
     # --- Fit PCA on train ---
@@ -43,12 +46,17 @@ def run_pca(data_dir: Path, n_pca: int = 32, has_structured: bool = False):
     print(f"\n✓ fused_train.npy — shape {fused_train.shape}")
 
     # --- Transform test split ---
-    ev_test_path = data_dir / "ev_test.npy"
     el_test_path = data_dir / "el_test.npy"
 
-    if ev_test_path.exists() and el_test_path.exists():
-        ev_test = np.load(ev_test_path)
+    if el_test_path.exists():
+        el_train = None # Free memory
         el_test = np.load(el_test_path)
+        
+        ev_test = None
+        ev_test_path = data_dir / "ev_test.npy"
+        if ev_test_path.exists():
+            ev_test = np.load(ev_test_path)
+            
         es_test = None
         if has_structured:
             es_test_path = data_dir / "es_test.npy"
@@ -59,7 +67,7 @@ def run_pca(data_dir: Path, n_pca: int = 32, has_structured: bool = False):
         np.save(data_dir / "fused_test.npy", fused_test)
         print(f"✓ fused_test.npy — shape {fused_test.shape}")
     else:
-        print("⚠ Test embeddings not found — skipping test PCA transform")
+        print("⚠ Language test embeddings not found — skipping test PCA transform")
 
     # --- Save fitted PCA models ---
     fusion.save(data_dir)

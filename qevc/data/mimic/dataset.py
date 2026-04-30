@@ -161,9 +161,8 @@ class MIMICRawDataset:
             df = self.admissions.merge(self.patients, on="SUBJECT_ID", how="left")
 
             # Compute approximate age at admission
-            df["AGE"] = (
-                (df["ADMITTIME"] - df["DOB"]).dt.total_seconds() / (365.25 * 24 * 3600)
-            )
+            # We use .days to avoid nanosecond overflow for patients > 89 years old (shifted DOB)
+            df["AGE"] = (df["ADMITTIME"].dt.date - df["DOB"].dt.date).apply(lambda x: x.days) / 365.25
 
             # Filter to adults (age >= 18) and exclude neonates
             # MIMIC encodes patients >89 with shifted DOB → age > 300
