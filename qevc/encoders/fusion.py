@@ -55,7 +55,7 @@ class PCAFusion:
 
     def fit(
         self,
-        visual_embs: np.ndarray,
+        visual_embs: Optional[np.ndarray],
         language_embs: np.ndarray,
         structured_embs: Optional[np.ndarray] = None,
     ) -> "PCAFusion":
@@ -73,11 +73,14 @@ class PCAFusion:
         print("Fitting PCA fusion...")
 
         # Fit per-modality PCA
-        n_v = min(self.n_per_mod, visual_embs.shape[1])
-        self.pca_visual = PCA(n_components=n_v, random_state=42)
-        v_reduced = self.pca_visual.fit_transform(visual_embs)
-        print(f"  Visual: {visual_embs.shape[1]} → {n_v}  "
-              f"(explained var: {self.pca_visual.explained_variance_ratio_.sum():.3f})")
+        parts = []
+        if visual_embs is not None:
+            n_v = min(self.n_per_mod, visual_embs.shape[1])
+            self.pca_visual = PCA(n_components=n_v, random_state=42)
+            v_reduced = self.pca_visual.fit_transform(visual_embs)
+            print(f"  Visual: {visual_embs.shape[1]} → {n_v}  "
+                  f"(explained var: {self.pca_visual.explained_variance_ratio_.sum():.3f})")
+            parts.append(v_reduced)
 
         n_l = min(self.n_per_mod, language_embs.shape[1])
         self.pca_language = PCA(n_components=n_l, random_state=42)
@@ -85,7 +88,7 @@ class PCAFusion:
         print(f"  Language: {language_embs.shape[1]} → {n_l}  "
               f"(explained var: {self.pca_language.explained_variance_ratio_.sum():.3f})")
 
-        parts = [v_reduced, l_reduced]
+        parts.append(l_reduced)
 
         if structured_embs is not None:
             n_s = min(self.n_per_mod, structured_embs.shape[1])
@@ -112,7 +115,7 @@ class PCAFusion:
 
     def transform(
         self,
-        visual_embs: np.ndarray,
+        visual_embs: Optional[np.ndarray],
         language_embs: np.ndarray,
         structured_embs: Optional[np.ndarray] = None,
     ) -> np.ndarray:
@@ -126,9 +129,13 @@ class PCAFusion:
         if not self._is_fitted:
             raise RuntimeError("PCAFusion has not been fitted yet. Call .fit() first.")
 
-        v_reduced = self.pca_visual.transform(visual_embs)
+        parts = []
+        if visual_embs is not None and self.pca_visual is not None:
+            v_reduced = self.pca_visual.transform(visual_embs)
+            parts.append(v_reduced)
+            
         l_reduced = self.pca_language.transform(language_embs)
-        parts = [v_reduced, l_reduced]
+        parts.append(l_reduced)
 
         if structured_embs is not None and self.pca_structured is not None:
             s_reduced = self.pca_structured.transform(structured_embs)
@@ -139,7 +146,7 @@ class PCAFusion:
 
     def fit_transform(
         self,
-        visual_embs: np.ndarray,
+        visual_embs: Optional[np.ndarray],
         language_embs: np.ndarray,
         structured_embs: Optional[np.ndarray] = None,
     ) -> np.ndarray:
@@ -159,8 +166,9 @@ class PCAFusion:
         directory = Path(directory)
         directory.mkdir(parents=True, exist_ok=True)
 
-        with open(directory / "pca_v.pkl", "wb") as f:
-            pickle.dump(self.pca_visual, f)
+        if self.pca_visual is not None:
+            with open(directory / "pca_v.pkl", "wb") as f:
+                pickle.dump(self.pca_visual, f)
         with open(directory / "pca_l.pkl", "wb") as f:
             pickle.dump(self.pca_language, f)
         with open(directory / "pca_final.pkl", "wb") as f:
@@ -177,8 +185,10 @@ class PCAFusion:
         directory = Path(directory)
         fusion = cls(n_pca=n_pca)
 
-        with open(directory / "pca_v.pkl", "rb") as f:
-            fusion.pca_visual = pickle.load(f)
+        pca_v_path = directory / "pca_v.pkl"
+        if pca_v_path.exists():
+            with open(pca_v_path, "rb") as f:
+                fusion.pca_visual = pickle.load(f)
         with open(directory / "pca_l.pkl", "rb") as f:
             fusion.pca_language = pickle.load(f)
         with open(directory / "pca_final.pkl", "rb") as f:
