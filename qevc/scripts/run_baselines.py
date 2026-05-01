@@ -36,22 +36,22 @@ def run_baselines(
     X_train = np.load(data_dir / "fused_train.npy")
     meta_train = np.load(data_dir / "meta_train.npz", allow_pickle=True)
 
-    if dataset == "vqacp":
+    if dataset in ("vqacp", "mimic"):
         y_train = meta_train["labels"].astype(np.int64)
     else:
-        y_train = meta_train["labels"].astype(np.float32)
+        raise ValueError(f"Unknown dataset: {dataset}")
     g_train = meta_train["groups"].astype(np.int64)
 
     # Test data
     X_test = np.load(data_dir / "fused_test.npy")
     meta_test = np.load(data_dir / "meta_test.npz", allow_pickle=True)
-    if dataset == "vqacp":
+    if dataset in ("vqacp", "mimic"):
         y_test = meta_test["labels"].astype(np.int64)
     else:
-        y_test = meta_test["labels"].astype(np.float32)
+        raise ValueError(f"Unknown dataset: {dataset}")
     g_test = meta_test["groups"].astype(np.int64)
 
-    n_classes = int(y_train.max()) + 1 if dataset == "vqacp" else y_train.shape[1]
+    n_classes = int(y_train.max()) + 1
     n_groups = int(g_train.max()) + 1
 
     print(f"Train: {X_train.shape} | Test: {X_test.shape} | "
@@ -71,8 +71,7 @@ def run_baselines(
             preds = model.predict(X_test)
             # SVM doesn't produce logits easily, use predictions for metrics
             metrics = {
-                "accuracy": float((preds == y_test).mean()) if dataset == "vqacp"
-                else float(((preds == y_test).all(axis=1)).mean()),
+                "accuracy": float((preds == y_test).mean()),
             }
 
         elif name == "mlp":

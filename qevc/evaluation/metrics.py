@@ -184,24 +184,18 @@ def auroc(
         Macro-averaged AUROC.
     """
     try:
-        if task == "vqacp":
+        if task in ("vqacp", "mimic"):
             # Multi-class: softmax over logits
             from scipy.special import softmax
             probs = softmax(logits, axis=1)
-            return float(roc_auc_score(
-                labels, probs, multi_class="ovr", average="macro"
-            ))
+            if probs.shape[1] == 2:
+                return float(roc_auc_score(labels, probs[:, 1]))
+            else:
+                return float(roc_auc_score(
+                    labels, probs, multi_class="ovr", average="macro"
+                ))
         else:
-            # Multi-label: sigmoid over logits
-            probs = 1 / (1 + np.exp(-logits))
-            # Filter columns with at least one positive
-            valid_cols = labels.sum(axis=0) > 0
-            if valid_cols.sum() == 0:
-                return 0.0
-            return float(roc_auc_score(
-                labels[:, valid_cols], probs[:, valid_cols],
-                average="macro",
-            ))
+            raise ValueError(f"Unknown task: {task}")
     except ValueError:
         # AUROC undefined when some classes have no positive samples
         return 0.0
@@ -249,12 +243,11 @@ def compute_all_metrics(
     logits = preds  # keep raw logits for AUROC
 
     # Hard predictions
-    if task == "vqacp":
+    if task in ("vqacp", "mimic"):
         hard_preds = preds.argmax(axis=1)
         accuracy = float((hard_preds == labels).mean())
     else:
-        hard_preds = (preds > 0).astype(float)
-        accuracy = float(((hard_preds == labels).all(axis=1)).mean())
+        raise ValueError(f"Unknown task: {task}")
 
     # Metrics
     eod_val = equalized_odds_difference(hard_preds, labels, groups)
