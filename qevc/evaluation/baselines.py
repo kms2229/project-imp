@@ -112,19 +112,19 @@ class MLPBaseline:
         self.model = _MLPNet(n_input, n_classes, task).to(device)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
 
-        if task == "vqacp":
+        if task in ("vqacp", "mimic"):
             self.criterion = nn.CrossEntropyLoss()
         else:
-            self.criterion = nn.BCEWithLogitsLoss()
+            raise ValueError(f"Unknown task: {task}")
 
     def train(self, X: np.ndarray, y: np.ndarray, groups: np.ndarray = None):
         """Fit MLP on training data."""
         print("Training MLP baseline...")
         X_t = torch.from_numpy(X).float()
-        if self.task == "vqacp":
+        if self.task in ("vqacp", "mimic"):
             y_t = torch.from_numpy(y).long()
         else:
-            y_t = torch.from_numpy(y).float()
+            raise ValueError(f"Unknown task: {self.task}")
 
         dataset = TensorDataset(X_t, y_t)
         loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
@@ -149,10 +149,10 @@ class MLPBaseline:
         self.model.eval()
         X_t = torch.from_numpy(X).float().to(self.device)
         logits = self.model(X_t)
-        if self.task == "vqacp":
+        if self.task in ("vqacp", "mimic"):
             return logits.argmax(dim=1).cpu().numpy()
         else:
-            return (logits > 0).float().cpu().numpy()
+            raise ValueError(f"Unknown task: {self.task}")
 
     @torch.no_grad()
     def predict_logits(self, X: np.ndarray) -> np.ndarray:
@@ -243,20 +243,20 @@ class AdvDebBaseline:
         self.model = _AdvDebNet(n_input, n_classes, n_groups).to(device)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
 
-        if task == "vqacp":
+        if task in ("vqacp", "mimic"):
             self.task_criterion = nn.CrossEntropyLoss()
         else:
-            self.task_criterion = nn.BCEWithLogitsLoss()
+            raise ValueError(f"Unknown task: {task}")
         self.group_criterion = nn.CrossEntropyLoss()
 
     def train(self, X: np.ndarray, y: np.ndarray, groups: np.ndarray):
         """Fit with adversarial debiasing."""
         print("Training AdvDeb baseline...")
         X_t = torch.from_numpy(X).float()
-        if self.task == "vqacp":
+        if self.task in ("vqacp", "mimic"):
             y_t = torch.from_numpy(y).long()
         else:
-            y_t = torch.from_numpy(y).float()
+            raise ValueError(f"Unknown task: {self.task}")
         g_t = torch.from_numpy(groups).long()
 
         dataset = TensorDataset(X_t, y_t, g_t)
@@ -291,10 +291,10 @@ class AdvDebBaseline:
         self.model.eval()
         X_t = torch.from_numpy(X).float().to(self.device)
         task_logits, _ = self.model(X_t)
-        if self.task == "vqacp":
+        if self.task in ("vqacp", "mimic"):
             return task_logits.argmax(dim=1).cpu().numpy()
         else:
-            return (task_logits > 0).float().cpu().numpy()
+            raise ValueError(f"Unknown task: {self.task}")
 
     @torch.no_grad()
     def predict_logits(self, X: np.ndarray) -> np.ndarray:
@@ -352,10 +352,10 @@ class DBABaseline:
         sample_weights = np.array([weight_map[g] for g in groups], dtype=np.float32)
 
         X_t = torch.from_numpy(X).float()
-        if self.task == "vqacp":
+        if self.task in ("vqacp", "mimic"):
             y_t = torch.from_numpy(y).long()
         else:
-            y_t = torch.from_numpy(y).float()
+            raise ValueError(f"Unknown task: {self.task}")
         w_t = torch.from_numpy(sample_weights).float()
 
         dataset = TensorDataset(X_t, y_t, w_t)
@@ -372,12 +372,10 @@ class DBABaseline:
                 self.optimizer.zero_grad()
                 logits = self.model(xb)
 
-                if self.task == "vqacp":
+                if self.task in ("vqacp", "mimic"):
                     loss = nn.functional.cross_entropy(logits, yb, reduction="none")
                 else:
-                    loss = nn.functional.binary_cross_entropy_with_logits(
-                        logits, yb, reduction="none"
-                    ).mean(dim=1)
+                    raise ValueError(f"Unknown task: {self.task}")
 
                 # Apply distribution-balanced weights
                 loss = (loss * wb).mean()
@@ -393,10 +391,10 @@ class DBABaseline:
         self.model.eval()
         X_t = torch.from_numpy(X).float().to(self.device)
         logits = self.model(X_t)
-        if self.task == "vqacp":
+        if self.task in ("vqacp", "mimic"):
             return logits.argmax(dim=1).cpu().numpy()
         else:
-            return (logits > 0).float().cpu().numpy()
+            raise ValueError(f"Unknown task: {self.task}")
 
     @torch.no_grad()
     def predict_logits(self, X: np.ndarray) -> np.ndarray:
