@@ -1,0 +1,20 @@
+#!/bin/bash -l
+
+#$ -P llm-plastsurg
+#$ -N vqacp_eval
+#$ -l h_rt=02:00:00
+#$ -l mem_total=32G
+#$ -pe omp 4
+#$ -j y
+#$ -o /projectnb/llm-plastsurg/kms_new/logs/vqacp_eval_$JOB_ID.log
+
+module load python3/3.10.12
+
+export PROJECT_DIR=/projectnb/llm-plastsurg/kms_new
+export PYTHONUSERBASE=$PROJECT_DIR/.qevc_env
+export PATH=$PYTHONUSERBASE/bin:$PATH
+export PYTHONPATH=$PROJECT_DIR/.qevc_env/lib/python3.10/site-packages:$PROJECT_DIR/project-imp:$PYTHONPATH
+
+cd $PROJECT_DIR/project-imp
+
+python3 -m qevc.scripts.evaluate --dataset vqacp --checkpoint qevc/checkpoints/qevc_vqacp_best.pt --device cpu

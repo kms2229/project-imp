@@ -191,12 +191,11 @@ class QEVCTrainer:
             total_loss += loss.item() * features.size(0)
 
             # Accuracy (use quantum logits)
-            if self.task == "vqacp":
+            if self.task in ("vqacp", "mimic"):
                 preds = q_logits.argmax(dim=1)
                 correct += (preds == labels).sum().item()
             else:
-                preds = (q_logits > 0).float()
-                correct += ((preds == labels).all(dim=1)).sum().item()
+                raise ValueError(f"Unknown task: {self.task}")
             total += features.size(0)
 
         return {
@@ -226,12 +225,11 @@ class QEVCTrainer:
 
             total_loss += loss.item() * features.size(0)
 
-            if self.task == "vqacp":
+            if self.task in ("vqacp", "mimic"):
                 preds = q_logits.argmax(dim=1)
                 correct += (preds == labels).sum().item()
             else:
-                preds = (q_logits > 0).float()
-                correct += ((preds == labels).all(dim=1)).sum().item()
+                raise ValueError(f"Unknown task: {self.task}")
             total += features.size(0)
 
             all_q_features.append(q_features.cpu())
