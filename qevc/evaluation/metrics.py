@@ -178,7 +178,7 @@ def auroc(
         Macro-averaged AUROC.
     """
     try:
-        if task == "vqacp":
+        if task in ("vqacp", "mimic"):
             # Multi-class: softmax over logits
             from scipy.special import softmax
             probs = softmax(logits, axis=1)
@@ -188,11 +188,6 @@ def auroc(
                 return float(roc_auc_score(
                     labels, probs, multi_class="ovr", average="macro"
                 ))
-        elif task == "mimic":
-            # Multi-label: sigmoid over logits
-            from scipy.special import expit
-            probs = expit(logits)
-            return float(roc_auc_score(labels, probs, average="macro"))
         else:
             raise ValueError(f"Unknown task: {task}")
     except ValueError:
@@ -242,13 +237,8 @@ def compute_all_metrics(
     logits = preds  # keep raw logits for AUROC
 
     # Hard predictions
-    if task == "vqacp":
+    if task in ("vqacp", "mimic"):
         hard_preds = preds.argmax(axis=1)
-        accuracy = float((hard_preds == labels).mean())
-    elif task == "mimic":
-        from scipy.special import expit
-        probs = expit(logits)
-        hard_preds = (probs > 0.5).astype(int)
         accuracy = float((hard_preds == labels).mean())
     else:
         raise ValueError(f"Unknown task: {task}")
