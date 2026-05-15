@@ -112,8 +112,10 @@ class MLPBaseline:
         self.model = _MLPNet(n_input, n_classes, task).to(device)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
 
-        if task in ("vqacp", "mimic"):
+        if task == "vqacp":
             self.criterion = nn.CrossEntropyLoss()
+        elif task == "mimic":
+            self.criterion = nn.BCEWithLogitsLoss()
         else:
             raise ValueError(f"Unknown task: {task}")
 
@@ -121,8 +123,10 @@ class MLPBaseline:
         """Fit MLP on training data."""
         print("Training MLP baseline...")
         X_t = torch.from_numpy(X).float()
-        if self.task in ("vqacp", "mimic"):
+        if self.task == "vqacp":
             y_t = torch.from_numpy(y).long()
+        elif self.task == "mimic":
+            y_t = torch.from_numpy(y).float()
         else:
             raise ValueError(f"Unknown task: {self.task}")
 
@@ -149,8 +153,10 @@ class MLPBaseline:
         self.model.eval()
         X_t = torch.from_numpy(X).float().to(self.device)
         logits = self.model(X_t)
-        if self.task in ("vqacp", "mimic"):
+        if self.task == "vqacp":
             return logits.argmax(dim=1).cpu().numpy()
+        elif self.task == "mimic":
+            return (torch.sigmoid(logits) > 0.5).int().cpu().numpy()
         else:
             raise ValueError(f"Unknown task: {self.task}")
 
@@ -243,8 +249,10 @@ class AdvDebBaseline:
         self.model = _AdvDebNet(n_input, n_classes, n_groups).to(device)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
 
-        if task in ("vqacp", "mimic"):
+        if task == "vqacp":
             self.task_criterion = nn.CrossEntropyLoss()
+        elif task == "mimic":
+            self.task_criterion = nn.BCEWithLogitsLoss()
         else:
             raise ValueError(f"Unknown task: {task}")
         self.group_criterion = nn.CrossEntropyLoss()
@@ -253,8 +261,10 @@ class AdvDebBaseline:
         """Fit with adversarial debiasing."""
         print("Training AdvDeb baseline...")
         X_t = torch.from_numpy(X).float()
-        if self.task in ("vqacp", "mimic"):
+        if self.task == "vqacp":
             y_t = torch.from_numpy(y).long()
+        elif self.task == "mimic":
+            y_t = torch.from_numpy(y).float()
         else:
             raise ValueError(f"Unknown task: {self.task}")
         g_t = torch.from_numpy(groups).long()
@@ -291,8 +301,10 @@ class AdvDebBaseline:
         self.model.eval()
         X_t = torch.from_numpy(X).float().to(self.device)
         task_logits, _ = self.model(X_t)
-        if self.task in ("vqacp", "mimic"):
+        if self.task == "vqacp":
             return task_logits.argmax(dim=1).cpu().numpy()
+        elif self.task == "mimic":
+            return (torch.sigmoid(task_logits) > 0.5).int().cpu().numpy()
         else:
             raise ValueError(f"Unknown task: {self.task}")
 
@@ -352,8 +364,10 @@ class DBABaseline:
         sample_weights = np.array([weight_map[g] for g in groups], dtype=np.float32)
 
         X_t = torch.from_numpy(X).float()
-        if self.task in ("vqacp", "mimic"):
+        if self.task == "vqacp":
             y_t = torch.from_numpy(y).long()
+        elif self.task == "mimic":
+            y_t = torch.from_numpy(y).float()
         else:
             raise ValueError(f"Unknown task: {self.task}")
         w_t = torch.from_numpy(sample_weights).float()
@@ -372,8 +386,11 @@ class DBABaseline:
                 self.optimizer.zero_grad()
                 logits = self.model(xb)
 
-                if self.task in ("vqacp", "mimic"):
+                if self.task == "vqacp":
                     loss = nn.functional.cross_entropy(logits, yb, reduction="none")
+                elif self.task == "mimic":
+                    loss = nn.functional.binary_cross_entropy_with_logits(logits, yb, reduction="none")
+                    loss = loss.mean(dim=1) # average over classes before sample weighting
                 else:
                     raise ValueError(f"Unknown task: {self.task}")
 
@@ -391,8 +408,10 @@ class DBABaseline:
         self.model.eval()
         X_t = torch.from_numpy(X).float().to(self.device)
         logits = self.model(X_t)
-        if self.task in ("vqacp", "mimic"):
+        if self.task == "vqacp":
             return logits.argmax(dim=1).cpu().numpy()
+        elif self.task == "mimic":
+            return (torch.sigmoid(logits) > 0.5).int().cpu().numpy()
         else:
             raise ValueError(f"Unknown task: {self.task}")
 

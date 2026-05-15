@@ -51,9 +51,12 @@ def equalized_odds_difference(
     # Convert to binary per-class if needed
     if preds.ndim == 1:
         # Multi-class → binary for each unique label
-        unique_labels = np.unique(labels)
+        unique_labels, counts = np.unique(labels, return_counts=True)
+        # Sort by frequency descending to avoid high variance on rare classes
+        sorted_indices = np.argsort(-counts)
+        top_labels = unique_labels[sorted_indices][:50]  # cap to top 50 frequent classes
         eods = []
-        for lab in unique_labels[:50]:  # cap to avoid expensive computation
+        for lab in top_labels:
             p_bin = (preds == lab).astype(float)
             l_bin = (labels == lab).astype(float)
             eods.append(_binary_eod(p_bin, l_bin, groups, unique_groups))
@@ -178,7 +181,7 @@ def auroc(
         Macro-averaged AUROC.
     """
     try:
-        if task in ("vqacp", "mimic"):
+        if task == "vqacp":
             # Multi-class: softmax over logits
             from scipy.special import softmax
             probs = softmax(logits, axis=1)
@@ -188,6 +191,11 @@ def auroc(
                 return float(roc_auc_score(
                     labels, probs, multi_class="ovr", average="macro"
                 ))
+        elif task == "mimic":
+            # Multi-label: sigmoid over logits
+            from scipy.special import expit
+            probs = expit(logits)
+            return float(roc_auc_score(labels, probs, average="macro"))
         else:
             raise ValueError(f"Unknown task: {task}")
     except ValueError:
@@ -237,8 +245,13 @@ def compute_all_metrics(
     logits = preds  # keep raw logits for AUROC
 
     # Hard predictions
-    if task in ("vqacp", "mimic"):
+    if task == "vqacp":
         hard_preds = preds.argmax(axis=1)
+        accuracy = float((hard_preds == labels).mean())
+    elif task == "mimic":
+        from scipy.special import expit
+        probs = expit(preds)
+        hard_preds = (probs > 0.5).astype(int)
         accuracy = float((hard_preds == labels).mean())
     else:
         raise ValueError(f"Unknown task: {task}")

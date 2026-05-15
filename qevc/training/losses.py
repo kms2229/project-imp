@@ -37,8 +37,10 @@ class HybridLoss(nn.Module):
         self.lam = lam
         self.label_smoothing = label_smoothing
 
-        if task in ("vqacp", "mimic"):
+        if task == "vqacp":
             self.criterion = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
+        elif task == "mimic":
+            self.criterion = nn.BCEWithLogitsLoss()
         else:
             raise ValueError(f"Unknown task: {task!r}. Expected 'vqacp' or 'mimic'.")
 
