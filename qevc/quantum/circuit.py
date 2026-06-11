@@ -22,7 +22,7 @@ from .encoding import angle_encode, prepare_features
 # Raw PennyLane circuit
 # ---------------------------------------------------------------------------
 
-def create_bqa_circuit(n_qubits: int, n_layers: int):
+def create_bqa_circuit(n_qubits: int, n_layers: int, entangling: bool = True):
     """Create the BQA (Biased Question Answering) variational quantum circuit.
 
     Parameters
@@ -31,6 +31,10 @@ def create_bqa_circuit(n_qubits: int, n_layers: int):
         Number of qubits.
     n_layers : int
         Number of variational layers (each includes data re-uploading).
+    entangling : bool
+        If True (default), include the circular CNOT entangling layer after
+        each variational block.  Set to False for the *no-entanglement*
+        ablation study (required by Reviewer 3).
 
     Returns
     -------
@@ -69,9 +73,10 @@ def create_bqa_circuit(n_qubits: int, n_layers: int):
                 qml.RY(weights[layer, q, 0], wires=q)
                 qml.RZ(weights[layer, q, 1], wires=q)
 
-            # 3. Entangling layer: circular CNOT chain
-            for q in range(n_qubits):
-                qml.CNOT(wires=[q, (q + 1) % n_qubits])
+            # 3. Entangling layer: circular CNOT chain (skipped in ablation)
+            if entangling:
+                for q in range(n_qubits):
+                    qml.CNOT(wires=[q, (q + 1) % n_qubits])
 
         # Measure PauliZ expectation on all qubits
         return [qml.expval(qml.PauliZ(i)) for i in range(n_qubits)]
@@ -111,15 +116,17 @@ class QEVCModel(nn.Module):
         n_layers: int = 6,
         n_pca: int = 32,
         n_classes: int = 3129,
+        entangling: bool = True,
     ) -> None:
         super().__init__()
         self.n_qubits = n_qubits
         self.n_layers = n_layers
         self.n_pca = n_pca
         self.n_classes = n_classes
+        self.entangling = entangling
 
         # --- Quantum circuit ---
-        self.circuit = create_bqa_circuit(n_qubits, n_layers)
+        self.circuit = create_bqa_circuit(n_qubits, n_layers, entangling=entangling)
 
         # Trainable quantum rotation parameters: (n_layers, n_qubits, 2)
         self.quantum_weights = nn.Parameter(

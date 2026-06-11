@@ -247,7 +247,18 @@ class AdvDebBaseline:
         self.device = device
 
         self.model = _AdvDebNet(n_input, n_classes, n_groups).to(device)
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
+
+        # Separate optimizers: one for the classifier path (shared + classifier)
+        # and one for the adversary.  This prevents the naive loss-subtraction
+        # divergence (loss → -89B) seen in previous runs.
+        self.opt_clf = torch.optim.Adam(
+            list(self.model.shared.parameters())
+            + list(self.model.classifier.parameters()),
+            lr=lr,
+        )
+        self.opt_adv = torch.optim.Adam(
+            self.model.adversary.parameters(), lr=lr,
+        )
 
         if task == "vqacp":
             self.task_criterion = nn.CrossEntropyLoss()
@@ -258,7 +269,15 @@ class AdvDebBaseline:
         self.group_criterion = nn.CrossEntropyLoss()
 
     def train(self, X: np.ndarray, y: np.ndarray, groups: np.ndarray):
-        """Fit with adversarial debiasing."""
+        """Fit with adversarial debiasing (two-step update).
+
+        Step 1 — **Adversary update**: freeze classifier, train adversary to
+        predict the protected group from shared features.
+
+        Step 2 — **Classifier update**: freeze adversary, train classifier to
+        minimise task loss while *maximising* the adversary's loss on shared
+        features (gradient reversal via negated adversary loss).
+        """
         print("Training AdvDeb baseline...")
         X_t = torch.from_numpy(X).float()
         if self.task == "vqacp":
@@ -274,27 +293,49 @@ class AdvDebBaseline:
 
         self.model.train()
         for epoch in range(1, self.epochs + 1):
-            total_loss = 0
+            total_task_loss = 0.0
+            total_adv_loss = 0.0
             for xb, yb, gb in loader:
                 xb = xb.to(self.device)
                 yb = yb.to(self.device)
                 gb = gb.to(self.device)
 
-                self.optimizer.zero_grad()
-                task_logits, group_logits = self.model(xb)
+                # ---- Step 1: update adversary ----
+                self.opt_adv.zero_grad()
+                with torch.no_grad():
+                    shared_feat = self.model.shared(xb)
+                group_logits = self.model.adversary(shared_feat.detach())
+                adv_loss = self.group_criterion(group_logits, gb)
+                adv_loss.backward()
+                nn.utils.clip_grad_norm_(self.model.adversary.parameters(), max_norm=1.0)
+                self.opt_adv.step()
 
-                # Task loss: minimize
+                # ---- Step 2: update classifier (with gradient reversal) ----
+                self.opt_clf.zero_grad()
+                task_logits, group_logits = self.model(xb)
                 task_loss = self.task_criterion(task_logits, yb)
-                # Adversarial loss: maximize (so we subtract it)
                 group_loss = self.group_criterion(group_logits, gb)
 
-                loss = task_loss - self.adv_weight * group_loss
-                loss.backward()
-                self.optimizer.step()
-                total_loss += loss.item()
+                # Gradient reversal: *subtract* the clamped adversary loss
+                # so that the shared encoder learns to fool the adversary.
+                clf_loss = task_loss - self.adv_weight * torch.clamp(group_loss, max=10.0)
+                clf_loss.backward()
+                nn.utils.clip_grad_norm_(
+                    list(self.model.shared.parameters())
+                    + list(self.model.classifier.parameters()),
+                    max_norm=1.0,
+                )
+                self.opt_clf.step()
+
+                total_task_loss += task_loss.item()
+                total_adv_loss += adv_loss.item()
 
             if epoch % 10 == 0 or epoch == 1:
-                print(f"  Epoch {epoch}/{self.epochs} — loss: {total_loss/len(loader):.4f}")
+                print(
+                    f"  Epoch {epoch}/{self.epochs} — "
+                    f"task_loss: {total_task_loss/len(loader):.4f}  "
+                    f"adv_loss: {total_adv_loss/len(loader):.4f}"
+                )
 
     @torch.no_grad()
     def predict(self, X: np.ndarray) -> np.ndarray:

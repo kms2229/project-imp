@@ -31,6 +31,14 @@ def run_single_ablation(dataset: str, config_path: str, param: str, value: float
     elif param == "depth":
         overrides = ["--n-layers", str(int(value))]
         tag = f"depth_{int(value)}"
+    elif param == "entanglement":
+        # value is 0 for no entanglement, 1 for entanglement
+        if int(value) == 0:
+            overrides = ["--no-entangling"]
+            tag = "entanglement_0"
+        else:
+            overrides = []
+            tag = "entanglement_1"
     else:
         raise ValueError(f"Unknown ablation param: {param}")
 
@@ -72,6 +80,14 @@ def run_full_ablation(dataset: str, config_path: str, ablation_path: str):
         rc = run_single_ablation(dataset, config_path, "depth", depth)
         results[f"depth_{depth}"] = {"returncode": rc}
 
+    # Entanglement ablation (with default lambda and depth)
+    print("\n" + "="*60)
+    print("ENTANGLEMENT ABLATION")
+    print("="*60)
+    for ent_val in [0, 1]:
+        rc = run_single_ablation(dataset, config_path, "entanglement", ent_val)
+        results[f"entanglement_{ent_val}"] = {"returncode": rc}
+
     # Save ablation summary
     results_dir = Path("qevc/results/ablation")
     results_dir.mkdir(parents=True, exist_ok=True)
@@ -88,7 +104,7 @@ def main():
     parser.add_argument("--ablation-config", default="configs/ablation.yaml")
     parser.add_argument(
         "--param",
-        choices=["lambda", "depth", "all"],
+        choices=["lambda", "depth", "entanglement", "all"],
         default="all",
         help="Which parameter to ablate",
     )

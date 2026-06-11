@@ -39,6 +39,8 @@ def main():
                         help="Override circuit depth")
     parser.add_argument("--batch-size", type=int, default=None,
                         help="Override batch size (larger = faster epochs)")
+    parser.add_argument("--no-entangling", action="store_true",
+                        help="Disable circular CNOT chain (for ablation)")
     parser.add_argument("--device", default="auto")
     args = parser.parse_args()
 
@@ -104,6 +106,7 @@ def main():
         n_layers=config.n_layers,
         n_pca=config.n_pca,
         n_classes=n_classes,
+        entangling=not args.no_entangling,
     )
     print(model.quantum_state_summary())
     print(f"Total params: {sum(p.numel() for p in model.parameters()):,}")

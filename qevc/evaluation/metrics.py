@@ -69,33 +69,46 @@ def equalized_odds_difference(
         return float(np.mean(eods))
 
 
+# Minimum number of samples a group must have in a given positive/negative
+# partition before it contributes to TPR/FPR estimation.  Groups with fewer
+# samples are skipped to avoid degenerate 0- or 1-valued rates that
+# artificially inflate EOD (root cause of the EOD=0.96 on VQA-CP binary).
+_MIN_GROUP_SAMPLES = 5
+
+
 def _binary_eod(
     preds: np.ndarray,
     labels: np.ndarray,
     groups: np.ndarray,
     unique_groups: np.ndarray,
 ) -> float:
-    """Compute EOD for a single binary classification task."""
-    tprs = []
-    fprs = []
+    """Compute EOD for a single binary classification task.
+
+    Groups that have fewer than ``_MIN_GROUP_SAMPLES`` positive *or* negative
+    examples are excluded from the TPR/FPR estimate for that partition.  This
+    prevents near-zero denominators from producing spuriously large (or small)
+    rates that dominate the max-minus-min disparity.
+    """
+    tprs: list[float] = []
+    fprs: list[float] = []
 
     for g in unique_groups:
         mask = groups == g
         g_preds = preds[mask]
         g_labels = labels[mask]
 
-        # True Positive Rate
+        # True Positive Rate — only if enough positives exist
         pos_mask = g_labels == 1
-        if pos_mask.sum() > 0:
-            tprs.append(g_preds[pos_mask].mean())
+        if pos_mask.sum() >= _MIN_GROUP_SAMPLES:
+            tprs.append(float(g_preds[pos_mask].mean()))
 
-        # False Positive Rate
+        # False Positive Rate — only if enough negatives exist
         neg_mask = g_labels == 0
-        if neg_mask.sum() > 0:
-            fprs.append(g_preds[neg_mask].mean())
+        if neg_mask.sum() >= _MIN_GROUP_SAMPLES:
+            fprs.append(float(g_preds[neg_mask].mean()))
 
-    tpr_diff = (max(tprs) - min(tprs)) if len(tprs) > 1 else 0.0
-    fpr_diff = (max(fprs) - min(fprs)) if len(fprs) > 1 else 0.0
+    tpr_diff = (max(tprs) - min(tprs)) if len(tprs) >= 2 else 0.0
+    fpr_diff = (max(fprs) - min(fprs)) if len(fprs) >= 2 else 0.0
 
     return (tpr_diff + fpr_diff) / 2.0
 
@@ -182,26 +195,24 @@ def auroc(
     """
     try:
         if task in ("vqacp", "mimic"):
-            # Multi-class: softmax over logits
             from scipy.special import softmax
             probs = softmax(logits, axis=1)
-            # For binary classification, use the probability of the class that gives AUC > 0.5
-            # Or just use macro average to be safe
+            # Squeeze labels to 1-D so roc_auc_score doesn't see a (N,1) array
+            labels_1d = np.squeeze(labels)
             if probs.shape[1] == 2:
-                auc = float(roc_auc_score(labels, probs[:, 1]))
-                # If AUC is below 0.5, it means the classes might be inverted in terms of the target of interest
-                if auc < 0.5 and task == "mimic":
-                    auc = 1.0 - auc
-                return auc
+                # Binary task: use the positive-class probability column.
+                # Always return AUC ≥ 0.5 (flip if classifier is inverted).
+                auc = float(roc_auc_score(labels_1d, probs[:, 1]))
+                return max(auc, 1.0 - auc)
             else:
                 return float(roc_auc_score(
-                    labels, probs, multi_class="ovr", average="macro"
+                    labels_1d, probs, multi_class="ovr", average="macro"
                 ))
         else:
             raise ValueError(f"Unknown task: {task}")
-    except ValueError:
+    except (ValueError, TypeError):
         # AUROC undefined when some classes have no positive samples
-        return 0.0
+        return float("nan")
 
 
 # ---------------------------------------------------------------------------
@@ -246,15 +257,18 @@ def compute_all_metrics(
     logits = preds  # keep raw logits for AUROC
 
     # Hard predictions
+    # Ensure both arrays are proper numpy arrays so that == always returns an
+    # ndarray (not a Python bool), which is required for .mean() to work.
     if task in ("vqacp", "mimic"):
-        hard_preds = preds.argmax(axis=1)
-        accuracy = float((hard_preds == labels).mean())
+        hard_preds = np.asarray(preds.argmax(axis=1)).ravel()
+        labels_1d = np.asarray(labels).ravel()
+        accuracy = float((hard_preds == labels_1d).mean())
     else:
         raise ValueError(f"Unknown task: {task}")
 
-    # Metrics
-    eod_val = equalized_odds_difference(hard_preds, labels, groups)
-    ibd_val = ibd_f1(hard_preds, labels, groups)
+    # Metrics — use the cleaned 1-D arrays throughout
+    eod_val = equalized_odds_difference(hard_preds, labels_1d, groups)
+    ibd_val = ibd_f1(hard_preds, labels_1d, groups)
     auc_val = auroc(logits, labels, task=task)
 
     result = {
