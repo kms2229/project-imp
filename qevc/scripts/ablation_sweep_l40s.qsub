@@ -1,12 +1,13 @@
 #!/bin/bash -l
 
 # ============================================================
-# Ablation sweep: λ values + circuit depth (L40S GPUs)
-# Submit: qsub -t 1-9 qevc/scripts/ablation_sweep_l40s.qsub
+# Ablation sweep: λ values, circuit depth, and entanglement (L40S GPUs)
+# Submit: qsub -t 1-11 qevc/scripts/ablation_sweep_l40s.qsub
 #
-# Task array: 9 parallel 1-GPU jobs
+# Task array: 11 parallel 1-GPU jobs
 #   1-5: λ sweep (0.1, 0.25, 0.5, 0.75, 1.0)
 #   6-9: depth sweep (L=2, 4, 6, 8)
+#  10-11: entanglement ablation (0=no CNOTs, 1=with CNOTs)
 #
 # Uses L40S for consistent timing across ablation runs.
 # ============================================================
@@ -42,6 +43,8 @@ cd $PROJECT_DIR/project-imp
 LAMBDAS=(0.1 0.25 0.5 0.75 1.0)
 # Depth sweep values
 DEPTHS=(2 4 6 8)
+# Entanglement sweep values (0=False, 1=True)
+ENTANGLING=(0 1)
 
 TASK_ID=${SGE_TASK_ID:-1}
 
@@ -57,6 +60,16 @@ elif [ $TASK_ID -le 9 ]; then
     DEPTH=${DEPTHS[$D_IDX]}
     echo "Depth ablation: L=$DEPTH"
     python3 -m qevc.scripts.train_qevc --dataset vqacp --device cuda --n-layers $DEPTH
+elif [ $TASK_ID -le 11 ]; then
+    # Entanglement ablation (tasks 10-11)
+    E_IDX=$((TASK_ID - 10))
+    ENT=${ENTANGLING[$E_IDX]}
+    echo "Entanglement ablation: CNOTs=$ENT"
+    if [ $ENT -eq 0 ]; then
+        python3 -m qevc.scripts.train_qevc --dataset vqacp --device cuda --no-entangling
+    else
+        python3 -m qevc.scripts.train_qevc --dataset vqacp --device cuda
+    fi
 fi
 
 echo "Job finished: $(date)"
