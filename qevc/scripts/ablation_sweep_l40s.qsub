@@ -53,22 +53,22 @@ if [ $TASK_ID -le 5 ]; then
     L_IDX=$((TASK_ID - 1))
     LAM=${LAMBDAS[$L_IDX]}
     echo "Lambda ablation: λ=$LAM"
-    python3 -m qevc.scripts.train_qevc --dataset vqacp --device cuda --lam $LAM
+    python3 -m qevc.scripts.train_qevc --dataset vqacp --device cuda --lam $LAM --n-samples 40000 --epochs 5
 elif [ $TASK_ID -le 9 ]; then
     # Depth ablation (tasks 6-9)
     D_IDX=$((TASK_ID - 6))
     DEPTH=${DEPTHS[$D_IDX]}
     echo "Depth ablation: L=$DEPTH"
-    python3 -m qevc.scripts.train_qevc --dataset vqacp --device cuda --n-layers $DEPTH
+    python3 -m qevc.scripts.train_qevc --dataset vqacp --device cuda --n-layers $DEPTH --n-samples 40000 --epochs 5
 elif [ $TASK_ID -le 11 ]; then
     # Entanglement ablation (tasks 10-11)
     E_IDX=$((TASK_ID - 10))
     ENT=${ENTANGLING[$E_IDX]}
     echo "Entanglement ablation: CNOTs=$ENT"
     if [ $ENT -eq 0 ]; then
-        python3 -m qevc.scripts.train_qevc --dataset vqacp --device cuda --no-entangling
+        python3 -m qevc.scripts.train_qevc --dataset vqacp --device cuda --no-entangling --n-samples 40000 --epochs 5
     else
-        python3 -m qevc.scripts.train_qevc --dataset vqacp --device cuda
+        python3 -m qevc.scripts.train_qevc --dataset vqacp --device cuda --n-samples 40000 --epochs 5
     fi
 fi
 
